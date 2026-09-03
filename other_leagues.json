@@ -8,8 +8,8 @@
         "waivers": "env:FREE_IRONBOUND_WAIVERS_WEBHOOK",
         "trades": "env:FREE_IRONBOUND_TRADES_WEBHOOK"
       },
-      "rounds": "auto",
-      "backfill": false
+      "rounds": [0, 1, 2, 3],
+      "backfill": true
     },
     {
       "key": "ballad_of_broken_hearts",
@@ -19,8 +19,8 @@
         "waivers": "env:BALLAD_WAIVERS_WEBHOOK",
         "trades": "env:BALLAD_TRADES_WEBHOOK"
       },
-      "rounds": "auto",
-      "backfill": false
+      "rounds": [0, 1, 2, 3],
+      "backfill": true
     },
     {
       "key": "nine_five",
@@ -30,8 +30,8 @@
         "waivers": "env:NINE_FIVE_WAIVERS_WEBHOOK",
         "trades": "env:NINE_FIVE_TRADES_WEBHOOK"
       },
-      "rounds": "auto",
-      "backfill": false
+      "rounds": [0, 1, 2, 3],
+      "backfill": true
     },
     {
       "key": "rocky_top_rumble",
@@ -41,8 +41,8 @@
         "waivers": "env:ROCKY_TOP_WAIVERS_WEBHOOK",
         "trades": "env:ROCKY_TOP_TRADES_WEBHOOK"
       },
-      "rounds": "auto",
-      "backfill": false
+      "rounds": [0, 1, 2, 3],
+      "backfill": true
     },
     {
       "key": "sec_dynasty",
@@ -52,8 +52,8 @@
         "waivers": "env:SEC_DYNASTY_WAIVERS_WEBHOOK",
         "trades": "env:SEC_DYNASTY_TRADES_WEBHOOK"
       },
-      "rounds": "auto",
-      "backfill": false
+      "rounds": [0, 1, 2, 3],
+      "backfill": true
     },
     {
       "key": "best_characters_dynasty",
@@ -63,8 +63,8 @@
         "waivers": "env:BEST_CHARACTERS_WAIVERS_WEBHOOK",
         "trades": "env:BEST_CHARACTERS_TRADES_WEBHOOK"
       },
-      "rounds": "auto",
-      "backfill": false
+      "rounds": [0, 1, 2, 3],
+      "backfill": true
     },
     {
       "key": "dont_tell_my_wife",
@@ -74,8 +74,8 @@
         "waivers": "env:DONT_TELL_MY_WIFE_WAIVERS_WEBHOOK",
         "trades": "env:DONT_TELL_MY_WIFE_TRADES_WEBHOOK"
       },
-      "rounds": "auto",
-      "backfill": false
+      "rounds": [0, 1, 2, 3],
+      "backfill": true
     }
   ]
 }
