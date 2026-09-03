@@ -1,0 +1,80 @@
+name: Other leagues transaction ledger
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: other-leagues-transaction-ledger
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      # Only the companion reporter's webhook secrets are exposed here. The
+      # original Ironbound reporter's three secrets are never read.
+      FREE_IRONBOUND_WAIVERS_WEBHOOK: ${{ secrets.FREE_IRONBOUND_WAIVERS_WEBHOOK }}
+      FREE_IRONBOUND_TRADES_WEBHOOK: ${{ secrets.FREE_IRONBOUND_TRADES_WEBHOOK }}
+      BALLAD_WAIVERS_WEBHOOK: ${{ secrets.BALLAD_WAIVERS_WEBHOOK }}
+      BALLAD_TRADES_WEBHOOK: ${{ secrets.BALLAD_TRADES_WEBHOOK }}
+      NINE_FIVE_WAIVERS_WEBHOOK: ${{ secrets.NINE_FIVE_WAIVERS_WEBHOOK }}
+      NINE_FIVE_TRADES_WEBHOOK: ${{ secrets.NINE_FIVE_TRADES_WEBHOOK }}
+      ROCKY_TOP_WAIVERS_WEBHOOK: ${{ secrets.ROCKY_TOP_WAIVERS_WEBHOOK }}
+      ROCKY_TOP_TRADES_WEBHOOK: ${{ secrets.ROCKY_TOP_TRADES_WEBHOOK }}
+      SEC_DYNASTY_WAIVERS_WEBHOOK: ${{ secrets.SEC_DYNASTY_WAIVERS_WEBHOOK }}
+      SEC_DYNASTY_TRADES_WEBHOOK: ${{ secrets.SEC_DYNASTY_TRADES_WEBHOOK }}
+      BEST_CHARACTERS_WAIVERS_WEBHOOK: ${{ secrets.BEST_CHARACTERS_WAIVERS_WEBHOOK }}
+      BEST_CHARACTERS_TRADES_WEBHOOK: ${{ secrets.BEST_CHARACTERS_TRADES_WEBHOOK }}
+      DONT_TELL_MY_WIFE_WAIVERS_WEBHOOK: ${{ secrets.DONT_TELL_MY_WIFE_WAIVERS_WEBHOOK }}
+      DONT_TELL_MY_WIFE_TRADES_WEBHOOK: ${{ secrets.DONT_TELL_MY_WIFE_TRADES_WEBHOOK }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Set daily player-cache key
+        id: player_cache_date
+        run: echo "date=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore daily Sleeper player map
+        uses: actions/cache@v4
+        with:
+          path: .cache/sleeper_players.json
+          key: sleeper-player-map-v1-${{ steps.player_cache_date.outputs.date }}
+          restore-keys: |
+            sleeper-player-map-v1-
+
+      - name: Install dependency
+        run: python -m pip install -r requirements.txt
+
+      - name: Publish other-league transactions
+        id: other_leagues_ledger
+        continue-on-error: true
+        run: python other_leagues_ledger.py
+
+      - name: Persist other-leagues state
+        if: always()
+        run: |
+          if [ -z "$(git status --porcelain -- other_leagues_state.json)" ]; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add other_leagues_state.json
+          git commit -m "Update other-leagues transaction state"
+          git push
+
+      - name: Report publishing failure
+        if: steps.other_leagues_ledger.outcome == 'failure'
+        run: exit 1
