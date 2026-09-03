@@ -4,6 +4,15 @@ on:
   schedule:
     - cron: "*/5 * * * *"
   workflow_dispatch:
+    inputs:
+      mode:
+        description: What should this manual run do?
+        required: true
+        default: preview
+        type: choice
+        options:
+          - preview
+          - publish
 
 permissions:
   contents: write
@@ -58,13 +67,30 @@ jobs:
       - name: Install dependency
         run: python -m pip install -r requirements.txt
 
+      - name: Build real-data text preview (no Discord and no state changes)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'preview' }}
+        run: >-
+          python other_leagues_ledger.py
+          --preview-dir discord-preview
+          --preview-rounds 0,1,2,3
+
+      - name: Make preview text files downloadable
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'preview' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: other-leagues-discord-preview
+          path: discord-preview/*.txt
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Publish other-league transactions
+        if: ${{ github.event_name == 'schedule' || inputs.mode == 'publish' }}
         id: other_leagues_ledger
         continue-on-error: true
         run: python other_leagues_ledger.py
 
       - name: Persist other-leagues state
-        if: always()
+        if: ${{ always() && (github.event_name == 'schedule' || inputs.mode == 'publish') }}
         run: |
           if [ -z "$(git status --porcelain -- other_leagues_state.json)" ]; then
             exit 0
@@ -76,5 +102,5 @@ jobs:
           git push
 
       - name: Report publishing failure
-        if: steps.other_leagues_ledger.outcome == 'failure'
+        if: ${{ (github.event_name == 'schedule' || inputs.mode == 'publish') && steps.other_leagues_ledger.outcome == 'failure' }}
         run: exit 1
