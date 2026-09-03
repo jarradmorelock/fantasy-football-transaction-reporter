@@ -35,10 +35,10 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -48,7 +48,7 @@ jobs:
         run: echo "date=$(date -u +%F)" >> "$GITHUB_OUTPUT"
 
       - name: Restore daily Sleeper player map
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .cache/sleeper_players.json
           key: sleeper-player-map-v1-${{ steps.player_cache_date.outputs.date }}
