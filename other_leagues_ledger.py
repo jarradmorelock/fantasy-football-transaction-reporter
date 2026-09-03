@@ -1,8 +1,9 @@
-"""Publish non-Ironbound Sleeper transactions to league-specific webhooks.
+"""Publish or preview non-Ironbound Sleeper transactions.
 
 This reporter is deliberately isolated from the original Ironbound Sixteen
 reporter. It uses its own configuration and state names and never reads the
-original reporter's environment variables or state file.
+original reporter's environment variables or state file. Preview mode fetches
+and formats real Sleeper history without posting to Discord or changing state.
 """
 
 from __future__ import annotations
@@ -50,6 +51,14 @@ class LeagueResult:
     name: str
     transactions: int
     messages: int
+
+
+@dataclass(frozen=True)
+class PreviewResult:
+    name: str
+    transactions: int
+    player_transactions_file: Path
+    trade_receipts_file: Path
 
 
 class HttpClient:
@@ -391,6 +400,19 @@ def fetch_transactions(
     )
 
 
+def fetch_league_transactions(
+    league: LeagueConfig,
+    client: HttpClient,
+    rounds: Sequence[int],
+) -> List[Dict[str, Any]]:
+    transactions: List[Dict[str, Any]] = []
+    for round_num in rounds:
+        transactions.extend(
+            fetch_transactions(client, league.sleeper_league_id, round_num)
+        )
+    return transactions
+
+
 def resolve_roster_id(
     value: Any,
     roster_names: Dict[int, str],
@@ -554,6 +576,39 @@ def format_trade_receipt(
     return lines
 
 
+def render_receipt_lines(
+    transactions: Sequence[Dict[str, Any]],
+    roster_names: Dict[int, str],
+    players: Dict[str, str],
+    user_to_roster: Dict[int, int],
+) -> Tuple[List[str], List[str]]:
+    """Format transactions through the same path used for Discord messages."""
+
+    player_transaction_lines: List[str] = []
+    trade_receipt_lines: List[str] = []
+    for transaction in transactions:
+        transaction_type = (transaction.get("type") or "").lower()
+        if transaction_type in ("waiver", "free_agent", "add_drop"):
+            block = format_waiver_receipt(transaction, roster_names, players)
+            if block:
+                if player_transaction_lines:
+                    player_transaction_lines.append("")
+                player_transaction_lines.extend(block)
+        elif transaction_type == "trade":
+            block = format_trade_receipt(
+                transaction,
+                roster_names,
+                players,
+                user_to_roster,
+            )
+            if block:
+                if trade_receipt_lines:
+                    trade_receipt_lines.append("")
+                trade_receipt_lines.extend(block)
+
+    return player_transaction_lines, trade_receipt_lines
+
+
 def _league_state(state: Dict[str, Any], key: str) -> Dict[str, Any]:
     leagues = state.setdefault("leagues", {})
     entry = leagues.setdefault(
@@ -593,6 +648,20 @@ def _new_final_transactions(
     return sorted(output, key=lambda item: (transaction_timestamp(item), transaction_key(item)))
 
 
+def _all_final_transactions(
+    transactions: Sequence[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    unique = {
+        transaction_key(transaction): transaction
+        for transaction in transactions
+        if is_final_status(transaction)
+    }
+    return sorted(
+        unique.values(),
+        key=lambda item: (transaction_timestamp(item), transaction_key(item)),
+    )
+
+
 def _advance_league_state(
     league_state: Dict[str, Any],
     transactions: Sequence[Dict[str, Any]],
@@ -628,11 +697,11 @@ def process_league(
         league.sleeper_league_id,
     )
 
-    transactions: List[Dict[str, Any]] = []
-    for round_num in league.rounds or automatic_rounds:
-        transactions.extend(
-            fetch_transactions(client, league.sleeper_league_id, round_num)
-        )
+    transactions = fetch_league_transactions(
+        league,
+        client,
+        league.rounds or automatic_rounds,
+    )
 
     existing_state = state.setdefault("leagues", {}).get(league.key)
     first_run = not isinstance(existing_state, dict)
@@ -646,27 +715,12 @@ def process_league(
     if not new_transactions:
         return LeagueResult(league.name, transactions=0, messages=0)
 
-    waiver_lines: List[str] = []
-    trade_lines: List[str] = []
-    for transaction in new_transactions:
-        transaction_type = (transaction.get("type") or "").lower()
-        if transaction_type in ("waiver", "free_agent", "add_drop"):
-            block = format_waiver_receipt(transaction, roster_names, players)
-            if block:
-                if waiver_lines:
-                    waiver_lines.append("")
-                waiver_lines.extend(block)
-        elif transaction_type == "trade":
-            block = format_trade_receipt(
-                transaction,
-                roster_names,
-                players,
-                user_to_roster,
-            )
-            if block:
-                if trade_lines:
-                    trade_lines.append("")
-                trade_lines.extend(block)
+    waiver_lines, trade_lines = render_receipt_lines(
+        new_transactions,
+        roster_names,
+        players,
+        user_to_roster,
+    )
 
     messages = 0
     for message in chunk_lines("", waiver_lines):
@@ -683,6 +737,85 @@ def process_league(
         transactions=len(new_transactions),
         messages=messages,
     )
+
+
+def _safe_file_key(value: str) -> str:
+    safe = "".join(
+        character if character.isalnum() or character in ("-", "_") else "_"
+        for character in value
+    ).strip("_")
+    return safe or "league"
+
+
+def _write_preview_file(path: Path, lines: Sequence[str], empty_text: str) -> None:
+    content = "\n".join(lines).rstrip() if lines else empty_text
+    path.write_text(content + "\n", encoding="utf-8")
+
+
+def preview(
+    leagues: Sequence[LeagueConfig],
+    output_dir: Path,
+    preview_rounds: Sequence[int] = (0, 1, 2, 3),
+    client: Optional[HttpClient] = None,
+    player_cache_path: Path = DEFAULT_PLAYER_CACHE_FILE,
+) -> List[PreviewResult]:
+    """Write real formatted history to text without Discord or state access."""
+
+    http = client or HttpClient()
+    output_dir.mkdir(parents=True, exist_ok=True)
+    players = player_name_map(http, player_cache_path)
+    results: List[PreviewResult] = []
+    failures: List[str] = []
+
+    for league in leagues:
+        try:
+            roster_names, user_to_roster = roster_name_map(
+                http,
+                league.sleeper_league_id,
+            )
+            transactions = _all_final_transactions(
+                fetch_league_transactions(league, http, preview_rounds)
+            )
+            player_lines, trade_lines = render_receipt_lines(
+                transactions,
+                roster_names,
+                players,
+                user_to_roster,
+            )
+
+            file_key = _safe_file_key(league.key)
+            player_path = output_dir / f"{file_key}-player-transactions.txt"
+            trade_path = output_dir / f"{file_key}-trade-receipts.txt"
+            _write_preview_file(
+                player_path,
+                player_lines,
+                "No completed player transactions found in the preview rounds.",
+            )
+            _write_preview_file(
+                trade_path,
+                trade_lines,
+                "No completed trades found in the preview rounds.",
+            )
+        except Exception as exc:  # Preview every league even if one fails.
+            failures.append(f"{league.name}: {exc}")
+            print(f"ERROR {league.name}: {exc}", file=sys.stderr)
+            continue
+
+        result = PreviewResult(
+            name=league.name,
+            transactions=len(transactions),
+            player_transactions_file=player_path,
+            trade_receipts_file=trade_path,
+        )
+        results.append(result)
+        print(
+            f"{league.name}: previewed {result.transactions} completed "
+            "transaction(s) without sending to Discord"
+        )
+
+    if failures:
+        raise RuntimeError(f"{len(failures)} league preview(s) failed")
+    return results
 
 
 def run(
@@ -734,12 +867,34 @@ def run(
 
 def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
         "--check-config",
         action="store_true",
         help="validate configuration without calling Sleeper or Discord",
     )
+    mode.add_argument(
+        "--preview-dir",
+        type=Path,
+        help=(
+            "write real formatted transaction history here without calling "
+            "Discord or changing state"
+        ),
+    )
+    parser.add_argument(
+        "--preview-rounds",
+        default="0,1,2,3",
+        help="comma-separated Sleeper transaction rounds for preview mode",
+    )
     return parser.parse_args(argv)
+
+
+def _parse_preview_rounds(value: str) -> Tuple[int, ...]:
+    raw_values = [item.strip() for item in value.split(",") if item.strip()]
+    parsed = _parse_rounds(raw_values, "Preview")
+    if parsed is None:
+        raise ConfigurationError("Preview rounds cannot be automatic")
+    return parsed
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
@@ -758,6 +913,18 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                     f"{league.name} ({league.key}): rounds {rounds}; {first_run}"
                 )
             print(f"Configuration valid for {len(leagues)} league(s)")
+            return 0
+
+        if args.preview_dir is not None:
+            preview(
+                leagues,
+                args.preview_dir,
+                preview_rounds=_parse_preview_rounds(args.preview_rounds),
+            )
+            print(
+                f"Preview files are ready in {args.preview_dir}; "
+                "Discord and other_leagues_state.json were not changed"
+            )
             return 0
 
         state_path = Path(
