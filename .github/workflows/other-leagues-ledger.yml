@@ -2,7 +2,7 @@ name: Other leagues transaction ledger
 
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "2/5 * * * *"
   workflow_dispatch:
     inputs:
       mode:
