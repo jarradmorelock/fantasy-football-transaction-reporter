@@ -1,0 +1,81 @@
+{
+  "leagues": [
+    {
+      "key": "free_ironbound_sixteen",
+      "name": "Free Ironbound Sixteen",
+      "sleeper_league_id": "1339055357728686080",
+      "webhooks": {
+        "waivers": "env:FREE_IRONBOUND_WAIVERS_WEBHOOK",
+        "trades": "env:FREE_IRONBOUND_TRADES_WEBHOOK"
+      },
+      "rounds": "auto",
+      "backfill": false
+    },
+    {
+      "key": "ballad_of_broken_hearts",
+      "name": "Ballad of Broken Hearts",
+      "sleeper_league_id": "1391793948728492032",
+      "webhooks": {
+        "waivers": "env:BALLAD_WAIVERS_WEBHOOK",
+        "trades": "env:BALLAD_TRADES_WEBHOOK"
+      },
+      "rounds": "auto",
+      "backfill": false
+    },
+    {
+      "key": "nine_five",
+      "name": "9-5",
+      "sleeper_league_id": "1314710193413554176",
+      "webhooks": {
+        "waivers": "env:NINE_FIVE_WAIVERS_WEBHOOK",
+        "trades": "env:NINE_FIVE_TRADES_WEBHOOK"
+      },
+      "rounds": "auto",
+      "backfill": false
+    },
+    {
+      "key": "rocky_top_rumble",
+      "name": "Rocky Top Rumble",
+      "sleeper_league_id": "1314710277232553984",
+      "webhooks": {
+        "waivers": "env:ROCKY_TOP_WAIVERS_WEBHOOK",
+        "trades": "env:ROCKY_TOP_TRADES_WEBHOOK"
+      },
+      "rounds": "auto",
+      "backfill": false
+    },
+    {
+      "key": "sec_dynasty",
+      "name": "SEC Dynasty",
+      "sleeper_league_id": "1341161857683058688",
+      "webhooks": {
+        "waivers": "env:SEC_DYNASTY_WAIVERS_WEBHOOK",
+        "trades": "env:SEC_DYNASTY_TRADES_WEBHOOK"
+      },
+      "rounds": "auto",
+      "backfill": false
+    },
+    {
+      "key": "best_characters_dynasty",
+      "name": "Best Characters Dynasty",
+      "sleeper_league_id": "1333195168139968512",
+      "webhooks": {
+        "waivers": "env:BEST_CHARACTERS_WAIVERS_WEBHOOK",
+        "trades": "env:BEST_CHARACTERS_TRADES_WEBHOOK"
+      },
+      "rounds": "auto",
+      "backfill": false
+    },
+    {
+      "key": "dont_tell_my_wife",
+      "name": "Don't Tell My Wife I'm In This",
+      "sleeper_league_id": "1341970851624402944",
+      "webhooks": {
+        "waivers": "env:DONT_TELL_MY_WIFE_WAIVERS_WEBHOOK",
+        "trades": "env:DONT_TELL_MY_WIFE_TRADES_WEBHOOK"
+      },
+      "rounds": "auto",
+      "backfill": false
+    }
+  ]
+}
