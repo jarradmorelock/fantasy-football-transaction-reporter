@@ -26,8 +26,10 @@
       ]
     },
     "nine_five": {
-      "last_seen_ms": 0,
-      "seen_at_last_ms": []
+      "last_seen_ms": 1788560338603,
+      "seen_at_last_ms": [
+        "1401727292232699904"
+      ]
     },
     "rocky_top_rumble": {
       "last_seen_ms": 1788361697037,
