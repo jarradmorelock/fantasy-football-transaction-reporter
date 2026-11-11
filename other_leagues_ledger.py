@@ -44,6 +44,8 @@ class LeagueConfig:
     webhook_trades: str
     rounds: Optional[Tuple[int, ...]] = None
     backfill: bool = False
+    # Only the Tribunal posts trades for leagues that have been migrated.
+    trade_receipts_enabled: bool = True
 
 
 @dataclass(frozen=True)
@@ -191,6 +193,9 @@ def _parse_league(
     backfill = raw.get("backfill", False)
     if not isinstance(backfill, bool):
         raise ConfigurationError(f"{name}: backfill must be true or false")
+    trade_receipts_enabled = raw.get("trade_receipts_enabled", True)
+    if not isinstance(trade_receipts_enabled, bool):
+        raise ConfigurationError(f"{name}: trade_receipts_enabled must be true or false")
 
     return LeagueConfig(
         key=key,
@@ -200,6 +205,7 @@ def _parse_league(
         webhook_trades=webhook_trades,
         rounds=_parse_rounds(raw.get("rounds"), name),
         backfill=backfill,
+        trade_receipts_enabled=trade_receipts_enabled,
     )
 
 
@@ -726,9 +732,14 @@ def process_league(
     for message in chunk_lines("", waiver_lines):
         client.post_discord(league.webhook_waivers, message)
         messages += 1
-    for message in chunk_lines("", trade_lines):
-        client.post_discord(league.webhook_trades, message)
-        messages += 1
+    if league.trade_receipts_enabled:
+        for message in chunk_lines("", trade_lines):
+            client.post_discord(league.webhook_trades, message)
+            messages += 1
+    elif trade_lines:
+        # This league's trades are announced by the independent Tribunal.
+        # The checkpoint still advances, preserving waiver processing.
+        print(f"{league.name}: {len(trade_lines)} trade receipt lines delegated to Trade Tribunal")
 
     # State moves only after all of this league's Discord posts have succeeded.
     _advance_league_state(league_state, new_transactions)

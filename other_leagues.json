@@ -9,7 +9,8 @@
         "trades": "env:FREE_IRONBOUND_TRADES_WEBHOOK"
       },
       "rounds": "auto",
-      "backfill": false
+      "backfill": false,
+      "trade_receipts_enabled": false
     },
     {
       "key": "ballad_of_broken_hearts",
